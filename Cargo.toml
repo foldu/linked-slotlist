@@ -1,0 +1,12 @@
+[package]
+name = "linked-slotlist"
+version = "0.1.0"
+authors = ["foldu <foldu@protonmail.com>"]
+edition = "2018"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+intrusive-collections = "0.8.1"
+slotmap = { version = "0.3.0", features = ["unstable"] }
