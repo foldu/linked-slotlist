@@ -1,4 +1,6 @@
-use slotmap::{DefaultKey, SlotMap};
+pub use slotmap::DefaultKey;
+use slotmap::SlotMap;
+// TODO: better API
 
 struct Node<T> {
     prev: Option<DefaultKey>,
@@ -6,7 +8,6 @@ struct Node<T> {
     val: T,
 }
 
-#[derive(Default)]
 pub struct LinkedSlotlist<T> {
     slots: SlotMap<DefaultKey, Node<T>>,
     head_tail: Option<HeadTail>,
@@ -19,6 +20,20 @@ struct HeadTail {
 }
 
 impl<T> LinkedSlotlist<T> {
+    pub fn new() -> Self {
+        LinkedSlotlist {
+            slots: SlotMap::new(),
+            head_tail: None,
+        }
+    }
+
+    pub fn with_capacity(n: usize) -> Self {
+        LinkedSlotlist {
+            slots: SlotMap::with_capacity(n),
+            head_tail: None,
+        }
+    }
+
     pub fn push(&mut self, val: T) -> DefaultKey {
         if let Some(HeadTail { ref mut tail, .. }) = self.head_tail {
             let this = self.slots.insert(Node {
@@ -62,8 +77,8 @@ impl<T> LinkedSlotlist<T> {
         }
     }
 
-    pub fn remove(&mut self, id: DefaultKey) -> Option<T> {
-        let (prev, next, ret) = if let Some(victim) = self.slots.remove(id) {
+    pub fn remove(&mut self, victim: DefaultKey) -> Option<T> {
+        let (prev, next, ret) = if let Some(victim) = self.slots.remove(victim) {
             (victim.prev, victim.next, victim.val)
         } else {
             return None;
@@ -97,6 +112,14 @@ impl<T> LinkedSlotlist<T> {
 
         Some(ret)
     }
+
+    pub fn get(&self, key: DefaultKey) -> Option<&T> {
+        if let Some(node) = self.slots.get(key) {
+            Some(&node.val)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -115,14 +138,6 @@ impl Cursor {
         }
     }
 
-    pub fn get<'a, T>(&self, map: &'a LinkedSlotlist<T>) -> Option<&'a T> {
-        if let Some(node) = map.slots.get(self.id) {
-            Some(&node.val)
-        } else {
-            None
-        }
-    }
-
     pub fn id(&self) -> DefaultKey {
         self.id
     }
@@ -131,37 +146,65 @@ impl Cursor {
         self.next
     }
 
+    pub fn next_with<T>(&self, list: &LinkedSlotlist<T>) -> Option<Cursor> {
+        self.next.and_then(|key| list.cursor_from_id(key))
+    }
+
     pub fn prev(&self) -> Option<DefaultKey> {
         self.prev
+    }
+
+    pub fn prev_with<'a, T>(&self, list: &LinkedSlotlist<T>) -> Option<Cursor> {
+        self.prev.and_then(|key| list.cursor_from_id(key))
+    }
+}
+
+impl<T> std::iter::FromIterator<T> for LinkedSlotlist<T> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let iter = iter.into_iter();
+        let mut ret = if let (_, Some(len)) = iter.size_hint() {
+            LinkedSlotlist::with_capacity(len)
+        } else {
+            LinkedSlotlist::new()
+        };
+
+        for it in iter {
+            ret.push(it);
+        }
+
+        ret
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn collect_forward(mut cursor: Cursor, slotmap: &LinkedSlotlist<u32>) -> (Cursor, Vec<u32>) {
+    fn collect_forward(mut cursor: Cursor, list: &LinkedSlotlist<u32>) -> (Cursor, Vec<u32>) {
         let mut ret = Vec::new();
-        while let Some(next) = cursor.next() {
-            ret.push(*cursor.get(&slotmap).unwrap());
-            cursor = slotmap.cursor_from_id(next).unwrap();
+        while let Some(next) = cursor.next_with(&list) {
+            ret.push(*list.get(cursor.id()).unwrap());
+            cursor = next;
         }
-        ret.push(*cursor.get(&slotmap).unwrap());
+        ret.push(*list.get(cursor.id()).unwrap());
         (cursor, ret)
     }
 
-    fn collect_backward(mut cursor: Cursor, slotmap: &LinkedSlotlist<u32>) -> (Cursor, Vec<u32>) {
+    fn collect_backward(mut cursor: Cursor, list: &LinkedSlotlist<u32>) -> (Cursor, Vec<u32>) {
         let mut ret = Vec::new();
-        while let Some(prev) = cursor.prev() {
-            ret.push(*cursor.get(&slotmap).unwrap());
-            cursor = slotmap.cursor_from_id(prev).unwrap();
+        while let Some(prev) = cursor.prev_with(&list) {
+            ret.push(*list.get(cursor.id()).unwrap());
+            cursor = prev;
         }
-        ret.push(*cursor.get(&slotmap).unwrap());
+        ret.push(*list.get(cursor.id()).unwrap());
         (cursor, ret)
     }
 
     #[test]
     fn just_do_something_and_hope_it_works() {
-        let mut slotmap = LinkedSlotlist::default();
+        let mut slotmap = LinkedSlotlist::new();
         let one = slotmap.push(1);
         slotmap.push(2);
         slotmap.push(3);
