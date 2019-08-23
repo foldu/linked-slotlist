@@ -34,7 +34,7 @@ impl<T> LinkedSlotlist<T> {
         }
     }
 
-    pub fn push(&mut self, val: T) -> DefaultKey {
+    pub fn push_back(&mut self, val: T) -> DefaultKey {
         if let Some(HeadTail { ref mut tail, .. }) = self.head_tail {
             let this = self.slots.insert(Node {
                 prev: Some(*tail),
@@ -60,18 +60,35 @@ impl<T> LinkedSlotlist<T> {
         }
     }
 
+    pub fn pop_front(&mut self) -> Option<T> {
+        let HeadTail { head, .. } = self.head_tail?;
+
+        self.remove(head)
+    }
+
+    pub fn pop_back(&mut self) -> Option<T> {
+        let HeadTail { tail, .. } = self.head_tail?;
+
+        self.remove(tail)
+    }
+
     pub fn cursor_from_id(&self, id: DefaultKey) -> Option<Cursor> {
-        if let Some(node) = self.slots.get(id) {
-            Some(Cursor::from_node(node, id))
-        } else {
-            None
-        }
+        self.slots.get(id).map(|node| Cursor::from_node(node, id))
     }
 
     pub fn head(&self) -> Option<Cursor> {
         if let Some(HeadTail { head, .. }) = self.head_tail {
             let node = self.slots.get(head).unwrap();
             Some(Cursor::from_node(node, head))
+        } else {
+            None
+        }
+    }
+
+    pub fn tail(&self) -> Option<Cursor> {
+        if let Some(HeadTail { tail, .. }) = self.head_tail {
+            let node = self.slots.get(tail).unwrap();
+            Some(Cursor::from_node(node, tail))
         } else {
             None
         }
@@ -114,11 +131,19 @@ impl<T> LinkedSlotlist<T> {
     }
 
     pub fn get(&self, key: DefaultKey) -> Option<&T> {
-        if let Some(node) = self.slots.get(key) {
-            Some(&node.val)
-        } else {
-            None
-        }
+        self.slots.get(key).map(|node| &node.val)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.slots.values().map(|v| &v.val)
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.slots.values_mut().map(|v| &mut v.val)
+    }
+
+    pub fn len(&self) -> usize {
+        self.slots.len()
     }
 }
 
@@ -172,13 +197,14 @@ impl<T> std::iter::FromIterator<T> for LinkedSlotlist<T> {
         };
 
         for it in iter {
-            ret.push(it);
+            ret.push_back(it);
         }
 
         ret
     }
 }
 
+// TODO: more tests
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -205,10 +231,10 @@ mod tests {
     #[test]
     fn just_do_something_and_hope_it_works() {
         let mut slotmap = LinkedSlotlist::new();
-        let one = slotmap.push(1);
-        slotmap.push(2);
-        slotmap.push(3);
-        slotmap.push(4);
+        let one = slotmap.push_back(1);
+        slotmap.push_back(2);
+        slotmap.push_back(3);
+        slotmap.push_back(4);
 
         let cursor = slotmap.head().unwrap();
 
@@ -223,7 +249,7 @@ mod tests {
         let (_, ret) = collect_forward(cursor, &slotmap);
         assert_eq!(ret, vec![2, 3, 4]);
 
-        slotmap.push(5);
+        slotmap.push_back(5);
         let cursor = slotmap.head().unwrap();
         let (_, ret) = collect_forward(cursor, &slotmap);
         assert_eq!(ret, vec![2, 3, 4, 5]);
