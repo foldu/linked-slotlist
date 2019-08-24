@@ -72,26 +72,12 @@ impl<T> LinkedSlotlist<T> {
         self.remove(tail)
     }
 
-    pub fn cursor_from_id(&self, id: DefaultKey) -> Option<Cursor> {
-        self.slots.get(id).map(|node| Cursor::from_node(node, id))
+    pub fn head(&self) -> Option<DefaultKey> {
+        self.head_tail.map(|HeadTail { head, .. }| head)
     }
 
-    pub fn head(&self) -> Option<Cursor> {
-        if let Some(HeadTail { head, .. }) = self.head_tail {
-            let node = self.slots.get(head).unwrap();
-            Some(Cursor::from_node(node, head))
-        } else {
-            None
-        }
-    }
-
-    pub fn tail(&self) -> Option<Cursor> {
-        if let Some(HeadTail { tail, .. }) = self.head_tail {
-            let node = self.slots.get(tail).unwrap();
-            Some(Cursor::from_node(node, tail))
-        } else {
-            None
-        }
+    pub fn tail(&self) -> Option<DefaultKey> {
+        self.head_tail.map(|HeadTail { tail, .. }| tail)
     }
 
     pub fn remove(&mut self, victim: DefaultKey) -> Option<T> {
@@ -145,42 +131,15 @@ impl<T> LinkedSlotlist<T> {
     pub fn len(&self) -> usize {
         self.slots.len()
     }
-}
 
-#[derive(Copy, Clone, Debug)]
-pub struct Cursor {
-    id: DefaultKey,
-    next: Option<DefaultKey>,
-    prev: Option<DefaultKey>,
-}
-
-impl Cursor {
-    fn from_node<T>(node: &Node<T>, id: DefaultKey) -> Self {
-        Self {
-            id,
-            prev: node.prev,
-            next: node.next,
-        }
+    pub fn next(&self, id: DefaultKey) -> Option<DefaultKey> {
+        let node = self.slots.get(id)?;
+        node.next
     }
 
-    pub fn id(&self) -> DefaultKey {
-        self.id
-    }
-
-    pub fn next(&self) -> Option<DefaultKey> {
-        self.next
-    }
-
-    pub fn next_with<T>(&self, list: &LinkedSlotlist<T>) -> Option<Cursor> {
-        self.next.and_then(|key| list.cursor_from_id(key))
-    }
-
-    pub fn prev(&self) -> Option<DefaultKey> {
-        self.prev
-    }
-
-    pub fn prev_with<'a, T>(&self, list: &LinkedSlotlist<T>) -> Option<Cursor> {
-        self.prev.and_then(|key| list.cursor_from_id(key))
+    pub fn prev(&self, id: DefaultKey) -> Option<DefaultKey> {
+        let node = self.slots.get(id)?;
+        node.prev
     }
 }
 
@@ -208,23 +167,29 @@ impl<T> std::iter::FromIterator<T> for LinkedSlotlist<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn collect_forward(mut cursor: Cursor, list: &LinkedSlotlist<u32>) -> (Cursor, Vec<u32>) {
+    fn collect_forward(
+        mut cursor: DefaultKey,
+        list: &LinkedSlotlist<u32>,
+    ) -> (DefaultKey, Vec<u32>) {
         let mut ret = Vec::new();
-        while let Some(next) = cursor.next_with(&list) {
-            ret.push(*list.get(cursor.id()).unwrap());
+        while let Some(next) = list.next(cursor) {
+            ret.push(*list.get(cursor).unwrap());
             cursor = next;
         }
-        ret.push(*list.get(cursor.id()).unwrap());
+        ret.push(*list.get(cursor).unwrap());
         (cursor, ret)
     }
 
-    fn collect_backward(mut cursor: Cursor, list: &LinkedSlotlist<u32>) -> (Cursor, Vec<u32>) {
+    fn collect_backward(
+        mut cursor: DefaultKey,
+        list: &LinkedSlotlist<u32>,
+    ) -> (DefaultKey, Vec<u32>) {
         let mut ret = Vec::new();
-        while let Some(prev) = cursor.prev_with(&list) {
-            ret.push(*list.get(cursor.id()).unwrap());
+        while let Some(prev) = list.prev(cursor) {
+            ret.push(*list.get(cursor).unwrap());
             cursor = prev;
         }
-        ret.push(*list.get(cursor.id()).unwrap());
+        ret.push(*list.get(cursor).unwrap());
         (cursor, ret)
     }
 
