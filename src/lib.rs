@@ -1,6 +1,5 @@
-pub use slotmap::DefaultKey;
-use slotmap::{Key, SlotMap};
-// TODO: better API
+use slotmap::SlotMap;
+pub use slotmap::{new_key_type, DefaultKey, Key};
 
 struct Node<T, K>
 where
@@ -198,13 +197,13 @@ where
         self.slots.len()
     }
 
-    pub fn next(&self, id: K) -> Option<K> {
-        let node = self.slots.get(id)?;
+    pub fn next(&self, key: K) -> Option<K> {
+        let node = self.slots.get(key)?;
         node.next
     }
 
-    pub fn prev(&self, id: K) -> Option<K> {
-        let node = self.slots.get(id)?;
+    pub fn prev(&self, key: K) -> Option<K> {
+        let node = self.slots.get(key)?;
         node.prev
     }
 }
