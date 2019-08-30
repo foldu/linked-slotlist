@@ -280,38 +280,38 @@ mod tests {
 
     #[test]
     fn just_do_something_and_hope_it_works() {
-        let mut slotmap = LinkedSlotlist::new();
-        let one = slotmap.push_back(1);
-        slotmap.push_back(2);
-        slotmap.push_back(3);
-        slotmap.push_back(4);
+        let mut list = LinkedSlotlist::new();
+        let one = list.push_back(1);
+        list.push_back(2);
+        list.push_back(3);
+        list.push_back(4);
 
-        let cursor = slotmap.head().unwrap();
+        let cursor = list.head().unwrap();
 
-        let (cursor, ret) = collect_forward(cursor, &slotmap);
+        let (cursor, ret) = collect_forward(cursor, &list);
         assert_eq!(ret, vec![1, 2, 3, 4]);
 
-        let (_, ret) = collect_backward(cursor, &slotmap);
+        let (_, ret) = collect_backward(cursor, &list);
         assert_eq!(ret, vec![4, 3, 2, 1]);
 
-        slotmap.remove(one);
-        let cursor = slotmap.head().unwrap();
-        let (_, ret) = collect_forward(cursor, &slotmap);
+        list.remove(one);
+        let cursor = list.head().unwrap();
+        let (_, ret) = collect_forward(cursor, &list);
         assert_eq!(ret, vec![2, 3, 4]);
 
-        slotmap.push_back(5);
-        let cursor = slotmap.head().unwrap();
-        let (_, ret) = collect_forward(cursor, &slotmap);
+        list.push_back(5);
+        let cursor = list.head().unwrap();
+        let (_, ret) = collect_forward(cursor, &list);
         assert_eq!(ret, vec![2, 3, 4, 5]);
 
-        slotmap.push_front(1);
-        let ret = collect_entire_list(&slotmap);
+        list.push_front(1);
+        let ret = collect_entire_list(&list);
         assert_eq!(ret, vec![1, 2, 3, 4, 5]);
 
-        let cursor = slotmap.head().unwrap();
-        let cursor = slotmap.next(cursor).unwrap();
-        slotmap.insert_after(cursor, 3);
-        let ret = collect_entire_list(&slotmap);
+        let cursor = list.head().unwrap();
+        let cursor = list.next(cursor).unwrap();
+        list.insert_after(cursor, 3);
+        let ret = collect_entire_list(&list);
         assert_eq!(ret, vec![1, 2, 3, 3, 4, 5]);
     }
 }
