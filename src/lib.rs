@@ -1,40 +1,52 @@
 pub use slotmap::DefaultKey;
-use slotmap::SlotMap;
+use slotmap::{Key, SlotMap};
 // TODO: better API
 
-struct Node<T> {
-    prev: Option<DefaultKey>,
-    next: Option<DefaultKey>,
+struct Node<T, K>
+where
+    K: Key,
+{
+    prev: Option<K>,
+    next: Option<K>,
     val: T,
 }
 
-pub struct LinkedSlotlist<T> {
-    slots: SlotMap<DefaultKey, Node<T>>,
-    head_tail: Option<HeadTail>,
+pub struct LinkedSlotlist<T, K = DefaultKey>
+where
+    K: Key,
+{
+    slots: SlotMap<K, Node<T, K>>,
+    head_tail: Option<HeadTail<K>>,
 }
 
 #[derive(Clone, Copy)]
-struct HeadTail {
-    head: DefaultKey,
-    tail: DefaultKey,
+struct HeadTail<K>
+where
+    K: Key,
+{
+    head: K,
+    tail: K,
 }
 
-impl<T> LinkedSlotlist<T> {
+impl<T, K> LinkedSlotlist<T, K>
+where
+    K: Key + Copy,
+{
     pub fn new() -> Self {
         LinkedSlotlist {
-            slots: SlotMap::new(),
+            slots: SlotMap::with_key(),
             head_tail: None,
         }
     }
 
     pub fn with_capacity(n: usize) -> Self {
         LinkedSlotlist {
-            slots: SlotMap::with_capacity(n),
+            slots: SlotMap::with_capacity_and_key(n),
             head_tail: None,
         }
     }
 
-    pub fn insert_before(&mut self, key: DefaultKey, val: T) -> Option<DefaultKey> {
+    pub fn insert_before(&mut self, key: K, val: T) -> Option<K> {
         let next_prev = self.slots.get(key).map(|node| node.prev)?;
         match next_prev {
             // last element, just call push_front to handle the gnarly stuff
@@ -58,7 +70,7 @@ impl<T> LinkedSlotlist<T> {
         }
     }
 
-    pub fn insert_after(&mut self, key: DefaultKey, val: T) -> Option<DefaultKey> {
+    pub fn insert_after(&mut self, key: K, val: T) -> Option<K> {
         let prev_next = self.slots.get(key).map(|node| node.next)?;
         match prev_next {
             // last element, just call push_back to handle the gnarly stuff
@@ -82,7 +94,7 @@ impl<T> LinkedSlotlist<T> {
         }
     }
 
-    pub fn push_front(&mut self, val: T) -> DefaultKey {
+    pub fn push_front(&mut self, val: T) -> K {
         if let Some(HeadTail { ref mut head, .. }) = self.head_tail {
             let this = self.slots.insert(Node {
                 prev: None,
@@ -98,7 +110,7 @@ impl<T> LinkedSlotlist<T> {
         }
     }
 
-    pub fn push_back(&mut self, val: T) -> DefaultKey {
+    pub fn push_back(&mut self, val: T) -> K {
         if let Some(HeadTail { ref mut tail, .. }) = self.head_tail {
             let this = self.slots.insert(Node {
                 prev: Some(*tail),
@@ -126,15 +138,15 @@ impl<T> LinkedSlotlist<T> {
         self.remove(tail)
     }
 
-    pub fn head(&self) -> Option<DefaultKey> {
+    pub fn head(&self) -> Option<K> {
         self.head_tail.map(|HeadTail { head, .. }| head)
     }
 
-    pub fn tail(&self) -> Option<DefaultKey> {
+    pub fn tail(&self) -> Option<K> {
         self.head_tail.map(|HeadTail { tail, .. }| tail)
     }
 
-    pub fn remove(&mut self, victim: DefaultKey) -> Option<T> {
+    pub fn remove(&mut self, victim: K) -> Option<T> {
         let (prev, next, ret) = if let Some(victim) = self.slots.remove(victim) {
             (victim.prev, victim.next, victim.val)
         } else {
@@ -170,7 +182,7 @@ impl<T> LinkedSlotlist<T> {
         Some(ret)
     }
 
-    pub fn get(&self, key: DefaultKey) -> Option<&T> {
+    pub fn get(&self, key: K) -> Option<&T> {
         self.slots.get(key).map(|node| &node.val)
     }
 
@@ -186,19 +198,22 @@ impl<T> LinkedSlotlist<T> {
         self.slots.len()
     }
 
-    pub fn next(&self, id: DefaultKey) -> Option<DefaultKey> {
+    pub fn next(&self, id: K) -> Option<K> {
         let node = self.slots.get(id)?;
         node.next
     }
 
-    pub fn prev(&self, id: DefaultKey) -> Option<DefaultKey> {
+    pub fn prev(&self, id: K) -> Option<K> {
         let node = self.slots.get(id)?;
         node.prev
     }
 }
 
-impl<T> LinkedSlotlist<T> {
-    fn insert_first_elem(&mut self, val: T) -> DefaultKey {
+impl<T, K> LinkedSlotlist<T, K>
+where
+    K: Key + Copy,
+{
+    fn insert_first_elem(&mut self, val: T) -> K {
         let this = self.slots.insert(Node {
             prev: None,
             next: None,
@@ -211,6 +226,40 @@ impl<T> LinkedSlotlist<T> {
         });
         this
     }
+
+    // probably going to need this for append
+    //fn contiguous_list<I>(&mut self, it: I) -> Option<HeadTail<K>>
+    //where
+    //    I: IntoIterator<Item = T>,
+    //{
+    //    let mut it = it.into_iter();
+
+    //    let first = it.next()?;
+
+    //    let key = self.slots.insert(Node {
+    //        val: first,
+    //        prev: None,
+    //        next: None,
+    //    });
+
+    //    let mut ret = HeadTail {
+    //        head: key,
+    //        tail: key,
+    //    };
+
+    //    for val in it {
+    //        let node = self.slots.insert(Node {
+    //            val,
+    //            prev: Some(ret.tail),
+    //            next: None,
+    //        });
+
+    //        self.slots.get_mut(ret.tail).unwrap().next = Some(node);
+    //        ret.tail = node;
+    //    }
+
+    //    Some(ret)
+    //}
 }
 
 impl<T> std::iter::FromIterator<T> for LinkedSlotlist<T> {
