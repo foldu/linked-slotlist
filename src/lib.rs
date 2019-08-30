@@ -197,6 +197,10 @@ where
         self.slots.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.slots.is_empty()
+    }
+
     pub fn next(&self, key: K) -> Option<K> {
         let node = self.slots.get(key)?;
         node.next
