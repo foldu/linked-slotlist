@@ -34,6 +34,70 @@ impl<T> LinkedSlotlist<T> {
         }
     }
 
+    pub fn insert_before(&mut self, key: DefaultKey, val: T) -> Option<DefaultKey> {
+        let next_prev = self.slots.get(key).map(|node| node.prev)?;
+        match next_prev {
+            // last element, just call push_front to handle the gnarly stuff
+            None => Some(self.push_front(val)),
+            Some(prev) => {
+                let node = Node {
+                    prev: Some(prev),
+                    next: Some(key),
+                    val,
+                };
+                let ret = self.slots.insert(node);
+                let prev_node = self.slots.get_mut(prev)?;
+
+                prev_node.next = Some(ret);
+                if let Some(next) = self.slots.get_mut(key) {
+                    next.prev = Some(ret);
+                }
+
+                Some(ret)
+            }
+        }
+    }
+
+    pub fn insert_after(&mut self, key: DefaultKey, val: T) -> Option<DefaultKey> {
+        let prev_next = self.slots.get(key).map(|node| node.next)?;
+        match prev_next {
+            // last element, just call push_back to handle the gnarly stuff
+            None => Some(self.push_back(val)),
+            Some(next) => {
+                let node = Node {
+                    prev: Some(key),
+                    next: Some(next),
+                    val,
+                };
+                let ret = self.slots.insert(node);
+                let next_node = self.slots.get_mut(next)?;
+
+                next_node.prev = Some(ret);
+                if let Some(prev) = self.slots.get_mut(key) {
+                    prev.next = Some(ret);
+                }
+
+                Some(ret)
+            }
+        }
+    }
+
+    pub fn push_front(&mut self, val: T) -> DefaultKey {
+        if let Some(HeadTail { ref mut head, .. }) = self.head_tail {
+            let this = self.slots.insert(Node {
+                prev: None,
+                next: Some(*head),
+                val,
+            });
+            let mut prev_head = self.slots.get_mut(*head).unwrap();
+            prev_head.prev = Some(this);
+            *head = this;
+            this
+        } else {
+            self.insert_first_elem(val)
+        }
+    }
+
     pub fn push_back(&mut self, val: T) -> DefaultKey {
         if let Some(HeadTail { ref mut tail, .. }) = self.head_tail {
             let this = self.slots.insert(Node {
@@ -46,17 +110,7 @@ impl<T> LinkedSlotlist<T> {
             *tail = this;
             this
         } else {
-            let this = self.slots.insert(Node {
-                prev: None,
-                next: None,
-                val,
-            });
-
-            self.head_tail = Some(HeadTail {
-                head: this,
-                tail: this,
-            });
-            this
+            self.insert_first_elem(val)
         }
     }
 
@@ -143,6 +197,22 @@ impl<T> LinkedSlotlist<T> {
     }
 }
 
+impl<T> LinkedSlotlist<T> {
+    fn insert_first_elem(&mut self, val: T) -> DefaultKey {
+        let this = self.slots.insert(Node {
+            prev: None,
+            next: None,
+            val,
+        });
+
+        self.head_tail = Some(HeadTail {
+            head: this,
+            tail: this,
+        });
+        this
+    }
+}
+
 impl<T> std::iter::FromIterator<T> for LinkedSlotlist<T> {
     fn from_iter<I>(iter: I) -> Self
     where
@@ -160,6 +230,12 @@ impl<T> std::iter::FromIterator<T> for LinkedSlotlist<T> {
         }
 
         ret
+    }
+}
+
+impl<T> Default for LinkedSlotlist<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -193,6 +269,15 @@ mod tests {
         (cursor, ret)
     }
 
+    fn collect_entire_list(list: &LinkedSlotlist<u32>) -> Vec<u32> {
+        if let Some(head) = list.head() {
+            let (_, ret) = collect_forward(head, list);
+            ret
+        } else {
+            vec![]
+        }
+    }
+
     #[test]
     fn just_do_something_and_hope_it_works() {
         let mut slotmap = LinkedSlotlist::new();
@@ -218,5 +303,15 @@ mod tests {
         let cursor = slotmap.head().unwrap();
         let (_, ret) = collect_forward(cursor, &slotmap);
         assert_eq!(ret, vec![2, 3, 4, 5]);
+
+        slotmap.push_front(1);
+        let ret = collect_entire_list(&slotmap);
+        assert_eq!(ret, vec![1, 2, 3, 4, 5]);
+
+        let cursor = slotmap.head().unwrap();
+        let cursor = slotmap.next(cursor).unwrap();
+        slotmap.insert_after(cursor, 3);
+        let ret = collect_entire_list(&slotmap);
+        assert_eq!(ret, vec![1, 2, 3, 3, 4, 5]);
     }
 }
