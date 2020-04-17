@@ -9,4 +9,4 @@ license = "MIT"
 
 [dependencies]
 intrusive-collections = "0.8.1"
-slotmap = { version = "0.4.0", features = ["unstable"] }
+slotmap = "0.4.0"
